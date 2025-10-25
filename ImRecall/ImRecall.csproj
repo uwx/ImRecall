@@ -6,6 +6,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <PublishAot>true</PublishAot>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -14,14 +15,30 @@
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
       <PlatformTarget>x64</PlatformTarget>
+
+        <DebuggerSupport>false</DebuggerSupport>
+        <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+        <EventSourceSupport>false</EventSourceSupport>
+        <Http3Support>false</Http3Support>
+        <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <MetadataUpdaterSupport>true</MetadataUpdaterSupport>
+        <MetricsSupport>false</MetricsSupport>
+        <StackTraceSupport>false</StackTraceSupport>
+        <UseNativeHttpHandler>true</UseNativeHttpHandler>
+        <UseSizeOptimizedLinq>false</UseSizeOptimizedLinq>
+        <UseSystemResourceKeys>true</UseSystemResourceKeys>
+        <XmlResolverIsNetworkingEnabledByDefault>false</XmlResolverIsNetworkingEnabledByDefault>
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
       <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.228">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
       <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
+      <PackageReference Include="System.Drawing.Common" Version="10.0.0-rc.2.25502.107" />
       <PackageReference Include="Vortice.Direct3D11" Version="3.7.6-beta" />
     </ItemGroup>
 

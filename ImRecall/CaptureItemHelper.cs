@@ -4,7 +4,7 @@ using System.Runtime.Versioning;
 using Windows.Graphics.Capture;
 using WinRT;
 
-namespace SnapX.Core.SharpCapture.Windows;
+namespace ImRecall;
 
 // [ComImport]
 [GeneratedComInterface]

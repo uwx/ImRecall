@@ -1,22 +1,18 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
-using Vortice.Direct3D;
-using Vortice.Direct3D11;
-using Vortice.DXGI;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
 using Windows.Graphics.DirectX.Direct3D11;
-using Windows.Graphics.Display;
 using Windows.Win32;
-using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using Vortice.Direct3D;
+using Vortice.Direct3D11;
+using Vortice.DXGI;
 using WinRT;
 
-
-namespace SnapX.Core.SharpCapture.Windows;
+namespace ImRecall;
 
 [SupportedOSPlatform("windows10.0.19045")]
 public class WindowsCapture
@@ -159,9 +155,9 @@ public class WindowsCapture
         CallingConvention = CallingConvention.StdCall
     )]
     private static extern uint CreateDirect3D11DeviceFromDXGIDevice(IntPtr dxgiDevice, out IntPtr graphicsDevice);
-    private static IDirect3DDevice CreateDirect3DDeviceFromVorticeDevice(ID3D11Device d3dDevice)
+    private static IDirect3DDevice? CreateDirect3DDeviceFromVorticeDevice(ID3D11Device d3dDevice)
     {
-        IDirect3DDevice device = null;
+        IDirect3DDevice? device = null;
 
         // Acquire the DXGI interface for the Direct3D device.
         using var dxgiDevice = d3dDevice.QueryInterface<ID3D11Device3>();
@@ -305,19 +301,11 @@ public class WindowsCapture
         return Image.LoadPixelData<Rgba64>(screenshotBytes, width, height);
     }
     
-    public async Task<Image<DirectXHalfVector4>?> CaptureFullscreen2()
+    public async ValueTask<LibraryIndependentImage<DirectXHalfVector4>?> CaptureFullscreen2(GraphicsCaptureItem captureItem)
     {
         if (!GraphicsCaptureSession.IsSupported())
         {
             throw new ExternalException("WindowsCapture: GraphicsCaptureSession is not supported on this device. Perhaps update your Windows?");
-        }
-
-
-        var captureItem = GraphicsCaptureItem.TryCreateFromDisplayId(DisplayServices.FindAll()[0]);
-        if (captureItem == null)
-        {
-            Console.WriteLine("WindowsCapture was provided with a invalid item (null) for Windows.Graphics.Capture to capture window... :(");
-            return null;
         }
 
         using var d3d11Device = D3D11.D3D11CreateDevice(DriverType.Hardware, DeviceCreationFlags.BgraSupport);
@@ -377,10 +365,21 @@ public class WindowsCapture
 
         var dataBox = d3d11Device.ImmediateContext.Map(staging, 0);
 
-        var screenshotBytes = GetDataAsByteArray(dataBox.DataPointer, (int)dataBox.RowPitch, width,
-            height);
-        d3d11Device.ImmediateContext.Unmap(staging, 0);
-        return Image.LoadPixelData<DirectXHalfVector4>(screenshotBytes, width, height);
+        // var screenshotBytes = GetDataAsByteArray(dataBox.DataPointer, (int)dataBox.RowPitch, width,
+        //     height);
+
+        var memoryOwner = new UnmanagedMemoryOwner<byte>(height * width * 8);
+        
+        unsafe
+        {
+            var srcSpan = new Span<byte>((byte*)dataBox.DataPointer, height * width * 8);
+            srcSpan.CopyTo(memoryOwner.Memory.Span);
+            
+            d3d11Device.ImmediateContext.Unmap(staging, 0);
+            
+            return new LibraryIndependentImage<DirectXHalfVector4>(memoryOwner, width, height);
+        }
+        // return Image.LoadPixelData<DirectXHalfVector4>(screenshotBytes, width, height);
     }
 
     private List<IDXGIAdapter1> EnumerateAdapters(IDXGIFactory1 factory)

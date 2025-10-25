@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 using SixLabors.ImageSharp.PixelFormats;
 
-namespace SnapX.Core.SharpCapture.Windows;
+namespace ImRecall;
 
 public partial struct DirectXHalfVector4 : IPixel<DirectXHalfVector4>, IPackedVector<ulong>
 {
