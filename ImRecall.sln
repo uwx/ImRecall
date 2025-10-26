@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImRecall", "ImRecall\ImReca
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Maxine.Fetch", "Maxine.Fetch\Maxine.Fetch.csproj", "{85CFE7BD-3B45-4483-996D-C1B1EB017D37}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Org.OpenAPITools", "ImmichSdk\src\Org.OpenAPITools\Org.OpenAPITools.csproj", "{8FC07706-ED39-4D1A-A069-9F90F50EDA8D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{85CFE7BD-3B45-4483-996D-C1B1EB017D37}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{85CFE7BD-3B45-4483-996D-C1B1EB017D37}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{85CFE7BD-3B45-4483-996D-C1B1EB017D37}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8FC07706-ED39-4D1A-A069-9F90F50EDA8D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8FC07706-ED39-4D1A-A069-9F90F50EDA8D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8FC07706-ED39-4D1A-A069-9F90F50EDA8D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8FC07706-ED39-4D1A-A069-9F90F50EDA8D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
