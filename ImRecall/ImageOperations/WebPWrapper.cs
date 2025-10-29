@@ -29,6 +29,9 @@ using System.Drawing.Imaging;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
+using ImRecall;
+using SixLabors.ImageSharp.PixelFormats;
+
 // ReSharper disable InconsistentNaming
 
 namespace WebPWrapper;
@@ -69,31 +72,19 @@ public sealed class WebP
     /// <summary>Lossless encoding bitmap to WebP (Simple encoding API)</summary>
     /// <param name="bmp">Bitmap with the image</param>
     /// <returns>Compressed data</returns>
-    public static IMemoryOwner<byte> EncodeLossless(Bitmap bmp)
+    public static unsafe IMemoryOwner<byte> EncodeLossless(LibraryIndependentImage<Bgr24> bmp)
     {
         //test bmp
         if (bmp.Width == 0 || bmp.Height == 0)
             throw new ArgumentException("Bitmap contains no data.", nameof(bmp));
         if (bmp.Width > WEBP_MAX_DIMENSION || bmp.Height > WEBP_MAX_DIMENSION)
             throw new NotSupportedException($"Bitmap's dimension is too large. Max is {WEBP_MAX_DIMENSION}x{WEBP_MAX_DIMENSION} pixels.");
-        if (bmp.PixelFormat != PixelFormat.Format24bppRgb && bmp.PixelFormat != PixelFormat.Format32bppArgb)
-            throw new NotSupportedException("Only support Format24bppRgb and Format32bppArgb pixelFormat.");
 
-        var bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, bmp.PixelFormat);
-
-        try
+        //Compress the bmp data
+        fixed (byte* ptr = bmp.MemoryOwner.Memory.Span)
         {
-            //Compress the bmp data
-            var size = bmp.PixelFormat == PixelFormat.Format24bppRgb
-                ? UnsafeNativeMethods.WebPEncodeLosslessBGR(bmpData.Scan0, bmp.Width, bmp.Height, bmpData.Stride, out var unmanagedData)
-                : UnsafeNativeMethods.WebPEncodeLosslessBGRA(bmpData.Scan0, bmp.Width, bmp.Height, bmpData.Stride, out unmanagedData);
-
+            var size = UnsafeNativeMethods.WebPEncodeLosslessBGR((IntPtr)ptr, bmp.Width, bmp.Height, bmp.Width * 3, out var unmanagedData);
             return new WebPMemoryOwner(unmanagedData, size);
-        }
-        finally
-        {
-            //Unlock the pixels
-            bmp.UnlockBits(bmpData);
         }
     }
 
