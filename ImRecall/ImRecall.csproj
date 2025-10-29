@@ -32,6 +32,7 @@
 <!--        <IlcGenerateMstatFile>true</IlcGenerateMstatFile>-->
 <!--        <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile>-->
         <EnableMsixTooling>true</EnableMsixTooling>
+        <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     </PropertyGroup>
 
     <ItemGroup>
