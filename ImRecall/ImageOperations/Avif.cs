@@ -1,3 +1,4 @@
+#if USE_AVIF
 using System.Buffers;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -33,3 +34,4 @@ internal class Avif
         }
     }
 }
+#endif
