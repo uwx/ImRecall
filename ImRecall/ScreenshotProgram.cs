@@ -14,7 +14,7 @@ using WebPWrapper;
 
 namespace ImRecall;
 
-public partial class ScreenshotProgram(IScreenshotService screenshotService, IImmichUploadService immichUploadService) : IHostedService, IDisposable
+public partial class ScreenshotProgram(IScreenshotService screenshotService, IImmichUploadService immichUploadService, ImRecallOptions opts) : BackgroundService, IDisposable
 {
     [GeneratedRegex(
         """
@@ -32,7 +32,7 @@ public partial class ScreenshotProgram(IScreenshotService screenshotService, IIm
         return InvalidFileNameCharsRegex.Replace(fileName, "_");
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -96,23 +96,24 @@ public partial class ScreenshotProgram(IScreenshotService screenshotService, IIm
                     
                     stopwatch.Stop();
                     Console.WriteLine($"[{index}] Encoded to WebP in {stopwatch.ElapsedMilliseconds} ms.");
-                    stopwatch = Stopwatch.StartNew();
                     
                     // Upload to Immich
-                    #if DEBUG && DEBUG_DONT_UPLOAD
-                    await using var stream =
-                        File.Create(
-                            $"{SanitizeFileName(captureItem.DisplayName)}-{SanitizeFileName(GetForegroundWindowName())}-{DateTimeOffset.Now:yyyy-MM-dd_HH-mm-ss}.webp");
-                    await stream.WriteAsync(bitmapMemoryOwner.Memory, cancellationToken);
-                    #else
-                    await immichUploadService.UploadAsync(
-                        $"{SanitizeFileName(captureItem.DisplayName)}-{SanitizeFileName(GetForegroundWindowName())}-{DateTimeOffset.Now:yyyy-MM-dd_HH-mm-ss}.webp",
-                        bitmapMemoryOwner.Memory,
-                        cancellationToken
-                    );
-                    #endif
-                    stopwatch.Stop();
-                    Console.WriteLine($"[{index}] Image uploaded in {stopwatch.ElapsedMilliseconds} ms.");
+                    var filename = $"{SanitizeFileName(captureItem.DisplayName)}-{SanitizeFileName(GetForegroundWindowName())}-{DateTimeOffset.Now:yyyy-MM-dd_HH-mm-ss}.webp";
+                    if (!opts.EnableUpload)
+                    {
+                        stopwatch = Stopwatch.StartNew();
+                        await using var stream = File.Create(filename);
+                        await stream.WriteAsync(bitmapMemoryOwner.Memory, cancellationToken);
+                        stopwatch.Stop();
+                        Console.WriteLine($"[{index}] Image saved in {stopwatch.ElapsedMilliseconds} ms.");
+                    }
+                    else
+                    {
+                        stopwatch = Stopwatch.StartNew();
+                        await immichUploadService.UploadAsync(filename, bitmapMemoryOwner.Memory, cancellationToken);
+                        stopwatch.Stop();
+                        Console.WriteLine($"[{index}] Image uploaded in {stopwatch.ElapsedMilliseconds} ms.");
+                    }
                 }
                 else
                 {
@@ -158,11 +159,6 @@ public partial class ScreenshotProgram(IScreenshotService screenshotService, IIm
         }
     }
 #endif
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
-    }
 
     private static string GetForegroundWindowName()
     {

@@ -15,10 +15,8 @@ public interface IImmichUploadService
     Task UploadAsync(string filename, Memory<byte> memory, CancellationToken token = default);
 }
 
-public partial class ImmichUploadService(ImmichAuth auth) : IImmichUploadService
+public partial class ImmichUploadService(ImmichAuth auth, ImRecallOptions opts) : IImmichUploadService
 {
-    private const string AlbumName = "ImRecall";
-
     public async Task UploadAsync(string filename, Memory<byte> memory, CancellationToken token = default)
     {
         Span<byte> hash = stackalloc byte[20];
@@ -66,7 +64,8 @@ public partial class ImmichUploadService(ImmichAuth auth) : IImmichUploadService
                     .Append("fileModifiedAt", DateTime.Now.ToString("o", CultureInfo.InvariantCulture))
                     .Append("fileSize", memory.Length.ToString())
                     .Append("isFavorite", "false")
-                    .Append("assetData", memory, filename),
+                    .Append("assetData", memory, filename)
+                    .Append("visibility", opts.ArchiveUploads ? "archive" : "timeline"),
                 Headers =
                 {
                     { "Accept", "application/json" },
@@ -103,14 +102,14 @@ public partial class ImmichUploadService(ImmichAuth auth) : IImmichUploadService
         var albums = (await getAlbums.Json<AlbumResponseDto[]>(cancellationToken: token, typeInfo: ImmichJsonContext.WithConverters.AlbumResponseDtoArray))
             !.Select(album => (Name: album.AlbumName, album.Id)).ToArray();
             
-        var screenshotsAlbum = albums.FirstOrDefault(album => album.Name == AlbumName);
+        var screenshotsAlbum = albums.FirstOrDefault(album => album.Name == opts.AlbumName);
         if (screenshotsAlbum == default)
         {
             using var createAlbum = await FetchAsync(new Request
             {
                 RequestUri = new Uri(baseUri, "/api/albums"),
                 Method = HttpMethod.Post,
-                Body = RequestBody.Json(new CreateAlbumDto(AlbumName), ImmichJsonContext.WithConverters.CreateAlbumDto),
+                Body = RequestBody.Json(new CreateAlbumDto(opts.AlbumName), ImmichJsonContext.WithConverters.CreateAlbumDto),
                 Headers =
                 {
                     { "Accept", "application/json" },

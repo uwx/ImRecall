@@ -24,6 +24,25 @@ url: https://your-immich-instance.com
 key: your-api-key
 ```
 
+## Configuration
+
+Create an `appsettings.json` file in the same directory as the executable to configure ImRecall:
+
+```json
+{
+  "ImRecall": {
+    "EnableUpload": true,
+    "AlbumName": "ImRecall",
+    "ArchiveUploads": true
+  }
+}
+```
+
+Configuration options:
+- `EnableUpload` - Whether to upload screenshots to Immich (default: `true`)
+- `AlbumName` - Name of the Immich album to upload to (default: `"ImRecall"`)
+- `ArchiveUploads` - Whether to mark uploaded assets as archived in Immich (default: `true`)
+
 ## Usage
 
 ### Basic Usage
