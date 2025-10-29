@@ -1,10 +1,14 @@
 ﻿using System.Drawing;
+using System.Globalization;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
+using Maxine.Fetch;
 using Microsoft.IO;
-using Org.OpenAPITools.Api;
 using Org.OpenAPITools.Model;
 using ImageFormat = System.Drawing.Imaging.ImageFormat;
+using static Maxine.Fetch.Fetch;
 
 namespace ImRecall;
 
@@ -13,9 +17,11 @@ public interface IImmichUploadService
     Task UploadAsync(string filename, Bitmap bitmap, CancellationToken token = default);
 }
 
-public partial class ImmichUploadService(IAssetsApi assetsApi) : IImmichUploadService
+public partial class ImmichUploadService(ImmichAuth auth) : IImmichUploadService
 {
     private readonly RecyclableMemoryStreamManager _memoryStreamManager = new();
+
+    private const string AlbumName = "ImRecall";
 
     public async Task UploadAsync(string filename, Bitmap bitmap, CancellationToken token = default)
     {
@@ -32,36 +38,123 @@ public partial class ImmichUploadService(IAssetsApi assetsApi) : IImmichUploadSe
         var hashString = Convert.ToHexStringLower(hash);
 
         stream.Position = 0;
-        var response = await assetsApi.CheckBulkUploadAsync(new AssetBulkUploadCheckDto([
-            new AssetBulkUploadCheckItem(hashString, filename)
-        ]), token);
-
-        if (!response.TryOk(out var dto))
+        
+        var baseUri = new Uri(auth.Url);
+        var authKey = auth.Key;
+        
+        using var bulkUploadCheck = await FetchAsync(new Request
         {
-            return;
+            RequestUri = new Uri(baseUri, "/api/assets/bulk-upload-check"),
+            Method = HttpMethod.Post,
+            Body = RequestBody.Json(new AssetBulkUploadCheckDto(assets:
+            [
+                new AssetBulkUploadCheckItem(checksum: hashString, id: filename)
+            ]), ImmichJsonContext.WithConverters.AssetBulkUploadCheckDto),
+            Headers =
+            {
+                { "Accept", "application/json" },
+                { "x-api-key", authKey },
+            }
+        }, token);
+        if (!bulkUploadCheck.Ok)
+        {
+            throw new InvalidOperationException($"Failed bulk upload check: {bulkUploadCheck.Status} {bulkUploadCheck.StatusText}");
         }
 
-        var result = dto.Results[0];
-        if (result.Action != AssetBulkUploadCheckResult.ActionEnum.Accept)
+        var result = (await bulkUploadCheck.Json<AssetBulkUploadCheckResponseDto>(cancellationToken: token, typeInfo: ImmichJsonContext.WithConverters.AssetBulkUploadCheckResponseDto))!.Results[0];
+        string uploadedAssetId;
+        if (result.Action == AssetBulkUploadCheckResult.ActionEnum.Accept)
         {
-            return;
+            using var uploadAsset = await FetchAsync(new Request
+            {
+                RequestUri = new Uri(baseUri, "/api/assets"),
+                Method = HttpMethod.Post,
+                Body = new FormData()
+                    .Append("deviceAssetId", WhitespaceRegex.Replace($"{Path.GetFileNameWithoutExtension(filename)}-{stream.Length}", ""))
+                    .Append("deviceId", "ImRecall")
+                    .Append("fileCreatedAt", DateTime.Now.ToString("o", CultureInfo.InvariantCulture))
+                    .Append("fileModifiedAt", DateTime.Now.ToString("o", CultureInfo.InvariantCulture))
+                    .Append("fileSize", stream.Length.ToString())
+                    .Append("isFavorite", "false")
+                    .Append("assetData", stream, filename),
+                Headers =
+                {
+                    { "Accept", "application/json" },
+                    { "x-api-key", authKey },
+                }
+            }, token);
+            if (!uploadAsset.Ok)
+            {
+                throw new InvalidOperationException($"Failed to upload asset: {uploadAsset.Status} {uploadAsset.StatusText}");
+            }
+            var uploadedAsset = (await uploadAsset.Json<AssetMediaResponseDto>(cancellationToken: token, typeInfo: ImmichJsonContext.WithConverters.AssetMediaResponseDto))!;
+            uploadedAssetId = uploadedAsset.Id;
+        }
+        else
+        {
+            uploadedAssetId = result.AssetId!;
         }
 
-        var response2 = await assetsApi.UploadAssetAsync(
-            assetData: stream,
-            deviceAssetId: WhitespaceRegex.Replace(
-                $"{Path.GetFileNameWithoutExtension(filename)}-{stream.Length}", ""),
-            deviceId: "ImRecall",
-            fileCreatedAt: DateTime.Now,
-            fileModifiedAt: DateTime.Now,
-            metadata: [],
-            filename: filename,
-            isFavorite: false,
-            cancellationToken: token
-        );
-        if (!response2.IsSuccessStatusCode)
+        using var getAlbums = await FetchAsync(new Request
         {
-            throw new InvalidOperationException($"Failed to upload asset: {response2.StatusCode} {response2.ReasonPhrase}");
+            RequestUri = new Uri(baseUri, "/api/albums"),
+            Method = HttpMethod.Get,
+            Headers =
+            {
+                { "Accept", "application/json" },
+                { "x-api-key", authKey },
+            }
+        }, token);
+        if (!getAlbums.Ok)
+        {
+            throw new InvalidOperationException($"Failed to get albums: {getAlbums.Status} {getAlbums.StatusText}");
+        }
+
+        var albums = (await getAlbums.Json<AlbumResponseDto[]>(cancellationToken: token, typeInfo: ImmichJsonContext.WithConverters.AlbumResponseDtoArray))
+            !.Select(album => (Name: album.AlbumName, album.Id)).ToArray();
+            
+        var screenshotsAlbum = albums.FirstOrDefault(album => album.Name == AlbumName);
+        if (screenshotsAlbum == default)
+        {
+            using var createAlbum = await FetchAsync(new Request
+            {
+                RequestUri = new Uri(baseUri, "/api/albums"),
+                Method = HttpMethod.Post,
+                Body = RequestBody.Json(new CreateAlbumDto(AlbumName), ImmichJsonContext.WithConverters.CreateAlbumDto),
+                Headers =
+                {
+                    { "Accept", "application/json" },
+                    { "x-api-key", authKey },
+                }
+            }, token);
+            if (!createAlbum.Ok)
+            {
+                throw new InvalidOperationException($"Failed to create Screenshots album: {createAlbum.Status} {createAlbum.StatusText}");
+            }
+            var album = await createAlbum.Json<AlbumResponseDto>(cancellationToken: token, typeInfo: ImmichJsonContext.WithConverters.AlbumResponseDto);
+            screenshotsAlbum = (album!.AlbumName, album.Id);
+        }
+
+        #if DEBUG
+        var memoryStream = new MemoryStream();
+        await JsonContent.Create(new AlbumsAddAssetsDto(albumIds: [ Guid.Parse(screenshotsAlbum.Id) ], assetIds: [ Guid.Parse(uploadedAssetId) ]), ImmichJsonContext.WithConverters.AlbumsAddAssetsDto).CopyToAsync(memoryStream, token);
+        Console.WriteLine(Encoding.UTF8.GetString(memoryStream.ToArray()));
+        #endif
+        
+        using var addToAlbum = await FetchAsync(new Request
+        {
+            RequestUri = new Uri(baseUri, $"/api/albums/assets"),
+            Method = HttpMethod.Put,
+            Body = RequestBody.Json(new AlbumsAddAssetsDto(albumIds: [ Guid.Parse(screenshotsAlbum.Id) ], assetIds: [ Guid.Parse(uploadedAssetId) ]), ImmichJsonContext.WithConverters.AlbumsAddAssetsDto),
+            Headers =
+            {
+                { "Accept", "application/json" },
+                { "x-api-key", authKey },
+            }
+        }, token);
+        if (!addToAlbum.Ok)
+        {
+            throw new InvalidOperationException($"Failed to add asset to Screenshots album: {addToAlbum.Status} {addToAlbum.StatusText}");
         }
     }
 

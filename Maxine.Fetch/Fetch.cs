@@ -11,23 +11,23 @@ public class Fetch
 {
     private static readonly Lazy<HttpClient> HttpClient = new(() => new HttpClient());
     
-    public static Task<Response> FetchAsync(Uri uri, RequestNoUri request) => FetchAsync(new Request(request, uri));
-    public static Task<Response> FetchAsync(string uri, RequestNoUri request) => FetchAsync(new Request(request, new Uri(uri)));
+    public static Task<Response> FetchAsync(Uri uri, RequestNoUri request, CancellationToken cancellationToken = default) => FetchAsync(new Request(request, uri), cancellationToken);
+    public static Task<Response> FetchAsync(string uri, RequestNoUri request, CancellationToken cancellationToken = default) => FetchAsync(new Request(request, new Uri(uri)), cancellationToken);
 
-    public static Task<Response> FetchAsync(Uri uri) => FetchAsync(new Request()
+    public static Task<Response> FetchAsync(Uri uri, CancellationToken cancellationToken = default) => FetchAsync(new Request
     {
         Method = HttpMethod.Get,
         RequestUri = uri
-    });
-    public static Task<Response> FetchAsync(string uri) => FetchAsync(new Request()
+    }, cancellationToken);
+    public static Task<Response> FetchAsync(string uri, CancellationToken cancellationToken = default) => FetchAsync(new Request
     {
         Method = HttpMethod.Get,
         RequestUri = new Uri(uri)
-    });
+    }, cancellationToken);
 
-    public static async Task<Response> FetchAsync(Request request)
+    public static async Task<Response> FetchAsync(Request request, CancellationToken cancellationToken = default)
     {
-        var response = await HttpClient.Value.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        var response = await HttpClient.Value.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         return new Response(response);
     }
 
@@ -98,7 +98,7 @@ public class RequestBody(HttpContent content)
     
     public static RequestBody Json(object? inputValue, Type inputType, MediaTypeHeaderValue? mediaType = null, JsonSerializerOptions? options = null) =>
         new(JsonContent.Create(inputValue, inputType, mediaType, options));
-    
+
     public static RequestBody Json<T>(T? inputValue, JsonTypeInfo<T> jsonTypeInfo, MediaTypeHeaderValue? mediaType = null) =>
         new(JsonContent.Create(inputValue, jsonTypeInfo, mediaType));
     
@@ -156,9 +156,23 @@ public class FormData() : RequestBody(new MultipartFormDataContent())
 
         return this;
     }
+    
+    public FormData Append(string name, Stream value, string? fileName = null)
+    {
+        if (fileName == null)
+        {
+            ((MultipartFormDataContent)Content).Add(new StreamContent(value), name);
+        }
+        else
+        {
+            ((MultipartFormDataContent)Content).Add(new StreamContent(value), name, fileName);
+        }
+
+        return this;
+    }
 }
 
-public class Response(HttpResponseMessage response)
+public class Response(HttpResponseMessage response) : IDisposable
 {
     public bool Ok => response.IsSuccessStatusCode;
     public bool Redirected => (int)response.StatusCode >= 300 && (int)response.StatusCode < 400;
@@ -174,31 +188,38 @@ public class Response(HttpResponseMessage response)
         response.EnsureSuccessStatusCode();
     }
  
-    public Task<Stream> Body()
+    public async Task<Stream> Body()
     {
-        UseBody();
-        return response.Content.ReadAsStreamAsync();
+        using (UseBody())
+            return await response.Content.ReadAsStreamAsync();
     }
 
-    public Task<byte[]> Bytes()
+    public async Task<byte[]> Bytes()
     {
-        UseBody();
-        return response.Content.ReadAsByteArrayAsync();
+        using (UseBody())
+            return await response.Content.ReadAsByteArrayAsync();
     }
 
-    public Task<T?> Json<T>(JsonSerializerOptions? options = null, CancellationToken cancellationToken = default)
+    [RequiresUnreferencedCode("The type T may require types that cannot be statically analyzed.")]
+    public async Task<T?> Json<T>(JsonSerializerOptions? options = null, CancellationToken cancellationToken = default)
     {
-        UseBody();
-        return response.Content.ReadFromJsonAsync<T>(options, cancellationToken);
+        using (UseBody())
+            return await response.Content.ReadFromJsonAsync<T>(options, cancellationToken);
+    }
+
+    public async Task<T?> Json<T>(JsonTypeInfo<T> typeInfo, CancellationToken cancellationToken = default)
+    {
+        using (UseBody())
+            return await response.Content.ReadFromJsonAsync(typeInfo, cancellationToken);
     }
     
-    public Task<string> Text()
+    public async Task<string> Text()
     {
-        UseBody();
-        return response.Content.ReadAsStringAsync();
+        using (UseBody())
+            return await response.Content.ReadAsStringAsync();
     }
 
-    private void UseBody()
+    private BodyDisposable UseBody()
     {
         if (BodyUsed)
         {
@@ -206,5 +227,17 @@ public class Response(HttpResponseMessage response)
         }
 
         BodyUsed = true;
+
+        return new BodyDisposable(this);
+    }
+
+    private readonly struct BodyDisposable(Response response) : IDisposable
+    {
+        public void Dispose() => response.Dispose();
+    }
+
+    public void Dispose()
+    {
+        response.Dispose();
     }
 }

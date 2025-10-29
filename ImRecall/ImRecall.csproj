@@ -29,6 +29,8 @@
         <UseSizeOptimizedLinq>false</UseSizeOptimizedLinq>
         <UseSystemResourceKeys>true</UseSystemResourceKeys>
         <XmlResolverIsNetworkingEnabledByDefault>false</XmlResolverIsNetworkingEnabledByDefault>
+<!--        <IlcGenerateMstatFile>true</IlcGenerateMstatFile>-->
+<!--        <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile>-->
     </PropertyGroup>
 
     <ItemGroup>
@@ -48,6 +50,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\ImmichSdk\src\Org.OpenAPITools\Org.OpenAPITools.csproj" />
+      <ProjectReference Include="..\Maxine.Fetch\Maxine.Fetch.csproj" />
     </ItemGroup>
 
 <!--    <ItemGroup>-->

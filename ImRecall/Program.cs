@@ -14,52 +14,15 @@ using SixLabors.ImageSharp.PixelFormats;
 using GraphicsCaptureItem = Windows.Graphics.Capture.GraphicsCaptureItem;
 
 var builder = Host.CreateDefaultBuilder(args)
-    .ConfigureApi((context, services, options) =>
-    {
-        // The type of token here depends on the api security specifications
-        // Available token types are ApiKeyToken, BasicToken, BearerToken, HttpSigningToken, and OAuthToken.
-        // BearerToken token = new("<your token>");
-        // options.AddTokens(token);
-        
-        services.AddSingleton<ImmichAuth>(static services => services.GetRequiredService<IImmichConfigProvider>().GetAuth());
-
-        services.AddSingleton<TokenContainer<ApiKeyToken>>(static services => new TokenContainer<ApiKeyToken>([
-            new ApiKeyToken(services.GetRequiredService<ImmichAuth>().Key, ClientUtils.ApiKeyHeader.X_api_key)
-        ]));
-        services.AddSingleton<TokenContainer<BearerToken>>(static services => new TokenContainer<BearerToken>([
-            new BearerToken(services.GetRequiredService<ImmichAuth>().Key)
-        ]));
-
-        // optionally choose the method the tokens will be provided with, default is RateLimitProvider
-        options.UseProvider<RateLimitProvider<BearerToken>, BearerToken>();
-
-        options.ConfigureJsonOptions(static jsonOptions =>
-        {
-            // your custom converters if any
-        });
-
-        options.AddApiHttpClients(
-            static (services, client) =>
-            {
-                // client configuration
-                client.BaseAddress = new Uri(services.GetRequiredService<ImmichAuth>().Url);
-            },
-            static builder =>
-            {
-                builder
-                    .AddRetryPolicy(0)
-                    .AddTimeoutPolicy(TimeSpan.FromSeconds(5))
-                    .AddCircuitBreakerPolicy(10, TimeSpan.FromSeconds(30));
-                // add whatever middleware you prefer
-            }
-        );
-    })
     .ConfigureServices(services =>
     {
         services.AddHostedService<ScreenshotProgram>();
         services.AddTransient<IImmichConfigProvider, ImmichConfigProvider>();
         services.AddTransient<IScreenshotService, ScreenshotService>();
+        services.AddHttpClient<IImmichUploadService, ImmichUploadService>(); // (static (services, client) => client.BaseAddress = new Uri(services.GetRequiredService<ImmichAuth>().Url))
         services.AddTransient<IImmichUploadService, ImmichUploadService>();
+        
+        services.AddSingleton<ImmichAuth>(static services => services.GetRequiredService<IImmichConfigProvider>().GetAuth());
     });
 
 using var host = builder.Build();
