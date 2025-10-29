@@ -9,8 +9,11 @@ public class UnmanagedMemoryOwner<T>(int size) : MemoryManager<T> where T : unma
     
     protected override void Dispose(bool disposing)
     {
-        Marshal.FreeHGlobal(_handle);
-        _handle = 0;
+        if (_handle != IntPtr.Zero)
+        {
+            Marshal.FreeHGlobal(_handle);
+            _handle = 0;
+        }
     }
 
     public override unsafe Span<T> GetSpan()
