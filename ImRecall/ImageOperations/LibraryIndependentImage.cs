@@ -27,6 +27,11 @@ public readonly record struct LibraryIndependentImage<T>(IMemoryOwner<byte> Memo
         var memoryOwner = new BitmapMemoryOwner(bmp);
         return new LibraryIndependentImage<T>(memoryOwner, bmp.Width, bmp.Height);
     }
+
+    public static unsafe LibraryIndependentImage<T> Alloc(int width, int height)
+    {
+        return new LibraryIndependentImage<T>(new UnmanagedMemoryOwner<byte>(width * height * sizeof(T)), width, height);
+    }
 }
 
 file unsafe class BitmapMemoryOwner(Bitmap bmp) : MemoryManager<byte>
