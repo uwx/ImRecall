@@ -29,18 +29,21 @@ jobs:
     - name: Publish Release
       run: dotnet publish ImRecall/ImRecall.csproj -c Release
     
+    - name: Create zip archive
+      run: 7z a ImRecall-win-x64.zip ./ImRecall/bin/Release/net10.0-windows10.0.20348.0/win-x64/publish/*
+    
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
         name: ImRecall-win-x64
-        path: ImRecall/bin/Release/net10.0-windows10.0.20348.0/win-x64/publish/*
+        path: ImRecall-win-x64.zip
     
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: release/${{ github.sha }}
         name: Release ${{ github.sha }}
-        files: ImRecall/bin/Release/net10.0-windows10.0.20348.0/win-x64/publish/*
+        files: ImRecall-win-x64.zip
         draft: false
         prerelease: false
       env:
