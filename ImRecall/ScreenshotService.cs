@@ -8,49 +8,53 @@ namespace ImRecall;
 
 public interface IScreenshotService
 {
-    public Task<Bitmap?> CaptureScreenshotAsync(GraphicsCaptureItem captureItem);
+    public Task<LibraryIndependentImage<Bgr24>?> CaptureScreenshotAsync(GraphicsCaptureItem captureItem);
 }
 
-public class ScreenshotService : IScreenshotService
+public sealed class ScreenshotService : IScreenshotService, IDisposable
 {
-    public async Task<Bitmap?> CaptureScreenshotAsync(GraphicsCaptureItem captureItem)
+    private readonly WindowsCapture _windowsCapture = new();
+    public async Task<LibraryIndependentImage<Bgr24>?> CaptureScreenshotAsync(GraphicsCaptureItem captureItem)
     {
-        Bitmap? bitmap = null;
+        // Capture HDR image
+        using var nullableHdrImage = await _windowsCapture.CaptureFullscreen(captureItem);
+        
+        if (nullableHdrImage is not {} hdrImage)
+        {
+            return null;
+        }
+
+        // Tonemap HDR to SDR
+        var tonemapSettings = new HdrTonemapper.TonemapSettings
+        {
+            Operator = HdrTonemapper.TonemapOperator.Clip, // You can change this to Reinhard, Filmic, or Clip
+            HdrPeakNits = 203f,  // Adjust based on your display
+            SdrWhiteNits = 100f,
+            Exposure = 1f,       // Increase if image is too dark
+            Gamma = 2.2f
+        };
+
+        var stopwatch = Stopwatch.StartNew();
+            
+        var sdrImage = LibraryIndependentImage<Bgr24>.Alloc(hdrImage.Width, hdrImage.Height);
         try
         {
-            // Capture HDR image
-            using var nullableHdrImage = await new WindowsCapture().CaptureFullscreen2(captureItem);
-            
-            if (nullableHdrImage is not {} hdrImage)
-            {
-                return null;
-            }
-
-            // Tonemap HDR to SDR
-            var tonemapSettings = new HdrTonemapper.TonemapSettings
-            {
-                Operator = HdrTonemapper.TonemapOperator.Clip, // You can change this to Reinhard, Filmic, or Clip
-                HdrPeakNits = 203f,  // Adjust based on your display
-                SdrWhiteNits = 100f,
-                Exposure = 1f,       // Increase if image is too dark
-                Gamma = 2.2f
-            };
-
-            var stopwatch = Stopwatch.StartNew();
-                
-            bitmap = new Bitmap(hdrImage.Width, hdrImage.Height, PixelFormat.Format24bppRgb);
-            using var sdrImage = LibraryIndependentImage<Bgr24>.FromBitmap(bitmap);
             HdrTonemapper.TonemapToSdr(hdrImage, sdrImage, tonemapSettings);
 
             stopwatch.Stop();
             Console.WriteLine($"Tonemapping completed in {stopwatch.ElapsedMilliseconds} ms.");
 
-            return bitmap;
+            return sdrImage;
         }
         catch
         {
-            bitmap?.Dispose();
+            sdrImage.Dispose();
             throw;
         }
+    }
+
+    public void Dispose()
+    {
+        _windowsCapture.Dispose();
     }
 }
