@@ -38,7 +38,6 @@ The tool will:
 - Capture screenshots from all displays every 3 seconds
 - Skip duplicate screenshots using similarity detection
 - Upload new screenshots to Immich with filename format: `[DisplayName]-[WindowTitle]-[Timestamp].png`
-- Create an album named "ImRecall" in Immich
 
 ### Publishing
 
