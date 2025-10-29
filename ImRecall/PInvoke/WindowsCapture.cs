@@ -55,7 +55,9 @@ public sealed partial class WindowsCapture : IDisposable
     private static ID3D11Texture2D Texture2DFromSurface(IDirect3DSurface surface)
     {
         var access = ((IWinRTObject) surface).NativeObject.AsInterface<IDirect3DDxgiInterfaceAccess>();
-        return new ID3D11Texture2D(access.GetInterface(in ID3D11Texture2D));
+        var texture = new ID3D11Texture2D(access.GetInterface(in ID3D11Texture2D));
+        
+        return texture;
     }
     
     public async ValueTask<LibraryIndependentImage<DirectXHalfVector4>?> CaptureFullscreen(GraphicsCaptureItem captureItem)
@@ -105,7 +107,8 @@ public sealed partial class WindowsCapture : IDisposable
         using (result)
         {
             Console.WriteLine("Moving to Texture2D from Surface");
-            using var frameTexture = Texture2DFromSurface(result.Surface);
+            using var direct3DSurface = result.Surface;
+            using var frameTexture = Texture2DFromSurface(direct3DSurface);
             
             Console.WriteLine($"{frameTexture.Dimension} {size.Width} {size.Height}");
             var desc = frameTexture.Description;
