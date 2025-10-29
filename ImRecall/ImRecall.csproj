@@ -36,11 +36,13 @@
     <ItemGroup>
       <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0-rc.2.25502.107" />
+      <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.3.2" />
       <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />
       <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.228">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
+      <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.0.250930001-experimental1" />
       <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
       <PackageReference Include="System.Drawing.Common" Version="10.0.0-rc.2.25502.107" />
       <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="16.3.0" />
@@ -50,6 +52,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\ImmichSdk\src\Org.OpenAPITools\Org.OpenAPITools.csproj" />
+      <ProjectReference Include="..\libavifsharp\src\LibavifSharp.csproj" />
       <ProjectReference Include="..\Maxine.Fetch\Maxine.Fetch.csproj" />
     </ItemGroup>
 
