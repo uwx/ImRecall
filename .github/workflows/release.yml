@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        dotnet-quality: 'preview'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Publish Release
+      run: dotnet publish ImRecall/ImRecall.csproj -c Release
+    
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ImRecall-win-x64
+        path: ImRecall/bin/Release/net10.0-windows10.0.20348.0/win-x64/publish/*
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: ImRecall/bin/Release/net10.0-windows10.0.20348.0/win-x64/publish/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
