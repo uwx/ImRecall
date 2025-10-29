@@ -1,5 +1,4 @@
-﻿using System.Drawing;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,38 +6,29 @@ using System.Text.RegularExpressions;
 using Maxine.Fetch;
 using Microsoft.IO;
 using Org.OpenAPITools.Model;
-using ImageFormat = System.Drawing.Imaging.ImageFormat;
 using static Maxine.Fetch.Fetch;
 
 namespace ImRecall;
 
 public interface IImmichUploadService
 {
-    Task UploadAsync(string filename, Bitmap bitmap, CancellationToken token = default);
+    Task UploadAsync(string filename, Memory<byte> memory, CancellationToken token = default);
 }
 
 public partial class ImmichUploadService(ImmichAuth auth) : IImmichUploadService
 {
-    private readonly RecyclableMemoryStreamManager _memoryStreamManager = new();
-
     private const string AlbumName = "ImRecall";
 
-    public async Task UploadAsync(string filename, Bitmap bitmap, CancellationToken token = default)
+    public async Task UploadAsync(string filename, Memory<byte> memory, CancellationToken token = default)
     {
-        await using var stream = _memoryStreamManager.GetStream();
-        bitmap.Save(stream, ImageFormat.Png);
-
-        stream.Position = 0;
         Span<byte> hash = stackalloc byte[20];
-        if (SHA1.HashData(stream, hash) < 20)
+        if (SHA1.HashData(memory.Span, hash) < 20)
         {
             throw new InvalidOperationException("Failed to compute SHA-1 hash.");
         }
 
         var hashString = Convert.ToHexStringLower(hash);
 
-        stream.Position = 0;
-        
         var baseUri = new Uri(auth.Url);
         var authKey = auth.Key;
         
@@ -70,13 +60,13 @@ public partial class ImmichUploadService(ImmichAuth auth) : IImmichUploadService
                 RequestUri = new Uri(baseUri, "/api/assets"),
                 Method = HttpMethod.Post,
                 Body = new FormData()
-                    .Append("deviceAssetId", WhitespaceRegex.Replace($"{Path.GetFileNameWithoutExtension(filename)}-{stream.Length}", ""))
+                    .Append("deviceAssetId", WhitespaceRegex.Replace($"{Path.GetFileNameWithoutExtension(filename)}-{memory.Length}", ""))
                     .Append("deviceId", "ImRecall")
                     .Append("fileCreatedAt", DateTime.Now.ToString("o", CultureInfo.InvariantCulture))
                     .Append("fileModifiedAt", DateTime.Now.ToString("o", CultureInfo.InvariantCulture))
-                    .Append("fileSize", stream.Length.ToString())
+                    .Append("fileSize", memory.Length.ToString())
                     .Append("isFavorite", "false")
-                    .Append("assetData", stream, filename),
+                    .Append("assetData", memory, filename),
                 Headers =
                 {
                     { "Accept", "application/json" },
