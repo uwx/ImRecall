@@ -1,0 +1,3 @@
+[submodule "libavifsharp"]
+	path = libavifsharp
+	url = https://github.com/uwx/libavifsharp
